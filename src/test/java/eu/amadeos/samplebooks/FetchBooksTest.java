@@ -62,6 +62,22 @@ class FetchBooksTest {
     }
 
     @Test
+    void readsTheEntriesOfGutenbergsSearch() {
+        String feed = """
+                <feed xmlns="http://www.w3.org/2005/Atom">
+                <id>https://www.gutenberg.org/ebooks/search.opds/?query=grimm</id>
+                <entry><title>Sort Alphabetically by Title</title><id>https://www.gutenberg.org/ebooks/search.opds/?sort_order=title</id></entry>
+                <entry><updated>2026-10-23</updated><title>Kinder- und Hausm&#228;rchen &amp; mehr</title>
+                <content type="text">Jacob Grimm</content><id>https://www.gutenberg.org/ebooks/2591.opds</id></entry>
+                <entry><title type="text">Grimms Märchen</title><id>https://www.gutenberg.org/ebooks/5314.opds</id></entry>
+                </feed>""";
+        var entries = FetchBooks.entries(feed);
+        assertEquals(List.of("2591", "5314"), List.copyOf(entries.keySet()));
+        assertEquals("Grimms Märchen", entries.get("5314"));
+        assertTrue(entries.get("2591").endsWith("& mehr"));
+    }
+
+    @Test
     void checksLanguageTitleChecksumsAndStrayFiles() throws Exception {
         list("# comment", "de\tdie-verwandlung\tFranz Kafka\tDie Verwandlung\tgutenberg\t22367",
                 "fr\tcandide\tVoltaire\tCandide\tgutenberg\t4650");

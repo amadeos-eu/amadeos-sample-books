@@ -43,9 +43,10 @@ import java.util.zip.ZipFile;
  * ./gradlew checkBooks                only check the files against books.tsv and books.sha256 (no network)
  * </pre>
  *
- * A Project Gutenberg book given as "auto" is looked up by author, title and language (gutendex.com), and the
+ * A Project Gutenberg book given as "auto" is looked up by author and title in Gutenberg's own search, and the
  * number found is written back into books.tsv, so the next run downloads the same book. Each download must be an
- * EPUB in the listed language whose title matches the listed one.
+ * EPUB in the listed language whose title matches the listed one. Busy servers are tried again; a book that still
+ * fails is reported at the end, and the books fetched so far are kept.
  */
 public final class FetchBooks {
     static final String AGENT = "amadeos-sample-books/1.0 (+https://github.com/datazuul/amadeos-sample-books)";
@@ -77,8 +78,9 @@ public final class FetchBooks {
         Path root = Path.of(System.getProperty("books.root", ".")).toAbsolutePath().normalize();
         List<String> options = Arrays.asList(args);
         FetchBooks fetch = new FetchBooks(root);
-        if (!options.contains("--check")) fetch.download(options.contains("--refresh"));
-        List<String> problems = fetch.check();
+        List<String> problems = new ArrayList<>();
+        if (!options.contains("--check")) problems.addAll(fetch.download(options.contains("--refresh")));
+        problems.addAll(fetch.check());
         problems.forEach(p -> System.err.println("PROBLEM: " + p));
         if (!problems.isEmpty()) System.exit(1);
     }
@@ -109,21 +111,31 @@ public final class FetchBooks {
 
     // ------------------------------------------------------------------ downloading
 
-    void download(boolean refresh) throws Exception {
-        List<Book> books = books();
-        for (Book book : books) {
+    /** Downloads the missing books; a book that fails is reported and the others are still fetched. */
+    List<String> download(boolean refresh) throws Exception {
+        List<String> failures = new ArrayList<>();
+        for (Book book : books()) {
             Path file = book.file(root);
             boolean auto = book.source().equals("gutenberg") && book.ref().equals("auto");
             if (Files.isRegularFile(file) && !refresh && !auto) continue;
-            if (auto) {
-                book = book.withRef(lookup(book));
-                writeBack(book);
+            try {
+                byte[] data;
+                if (auto) {
+                    Candidate found = lookup(book);
+                    book = book.withRef(found.ref());
+                    data = found.data();
+                    writeBack(book);
+                } else {
+                    String url = url(book);
+                    System.out.println("  " + book.lang() + "  " + book.name() + "  <- " + url);
+                    data = get(url);
+                }
+                Files.createDirectories(file.getParent());
+                Files.write(file, data);
+            } catch (IOException e) {
+                failures.add(book.lang() + "/" + book.name() + " not fetched: " + e.getMessage());
+                System.err.println("  " + book.lang() + "  " + book.name() + "  FAILED: " + e.getMessage());
             }
-            String url = url(book);
-            System.out.println("  " + book.lang() + "  " + book.name() + "  <- " + url);
-            byte[] data = get(url);
-            Files.createDirectories(file.getParent());
-            Files.write(file, data);
             Thread.sleep(2000); // be gentle with the servers
         }
         StringBuilder sums = new StringBuilder();
@@ -132,6 +144,7 @@ public final class FetchBooks {
             if (Files.isRegularFile(file)) sums.append(sha256(file)).append("  ").append(relative(file)).append('\n');
         }
         Files.writeString(root.resolve("books.sha256"), sums);
+        return failures;
     }
 
     static String url(Book book) {
@@ -142,43 +155,121 @@ public final class FetchBooks {
         };
     }
 
+    /** GET with up to four attempts: busy servers (HTTP 429 and 5xx) and broken connections are tried again. */
     private byte[] get(String url) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder(URI.create(url)).header("User-Agent", AGENT)
                 .timeout(Duration.ofMinutes(3)).build();
-        HttpResponse<byte[]> response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        if (response.statusCode() != 200) throw new IOException(url + ": HTTP " + response.statusCode());
-        return response.body();
+        IOException last = null;
+        for (int attempt = 1; attempt <= 4; attempt++) {
+            if (attempt > 1) Thread.sleep(5000L << (2 * (attempt - 2))); // 5 s, 20 s, 80 s
+            try {
+                HttpResponse<byte[]> response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
+                int status = response.statusCode();
+                if (status == 200) return response.body();
+                last = new IOException(url + ": HTTP " + status);
+                if (status != 429 && status < 500) throw last;
+            } catch (IOException e) {
+                if (e == last) throw e;
+                last = new IOException(url + ": " + e, e);
+            }
+            System.err.println("    attempt " + attempt + ": " + last.getMessage());
+        }
+        throw last;
     }
 
-    private static final Pattern RESULT = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"title\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+    /** A Gutenberg book found by {@link #lookup}, already downloaded. */
+    record Candidate(String ref, String title, byte[] data) {
+    }
 
-    /** The most downloaded Gutenberg book for the author, title and language; tries narrower queries first. */
-    private String lookup(Book book) throws IOException, InterruptedException {
+    /** An entry of Gutenberg's OPDS search: the ebook number and the title. */
+    private static final Pattern ENTRY = Pattern.compile("<entry>(.*?)</entry>", Pattern.DOTALL);
+    private static final Pattern ENTRY_TITLE = Pattern.compile("<title[^>]*>([^<]*)</title>");
+    private static final Pattern ENTRY_ID = Pattern.compile("<id>[^<]*/ebooks/(\\d+)(?:\\.opds)?</id>");
+
+    /**
+     * Looks the book up in Project Gutenberg's own search (OPDS), narrower queries first. A result whose title matches
+     * is downloaded and taken when the EPUB is in the book's language and its title matches too.
+     */
+    private Candidate lookup(Book book) throws IOException, InterruptedException {
         String[] names = book.author().split(" ");
-        String lastName = book.author().toLowerCase(Locale.ROOT).startsWith("anon") ? "" : names[names.length - 1];
+        String lastName = book.author().toLowerCase(Locale.ROOT).startsWith("an") && names.length == 1 ? ""
+                : names[names.length - 1];
         Set<String> queries = new LinkedHashSet<>();
         queries.add((lastName + " " + book.title()).strip());
-        queries.add(book.title());
         for (String word : book.title().split("[^\\p{L}]+")) {
             if (word.length() >= 5) queries.add((lastName + " " + word).strip());
         }
+        queries.add(book.title());
+        Set<String> tried = new LinkedHashSet<>();
         List<String> seen = new ArrayList<>();
         for (String query : queries) {
-            String url = "https://gutendex.com/books/?languages=" + book.lang() + "&search="
+            String url = "https://www.gutenberg.org/ebooks/search.opds/?query="
                     + URLEncoder.encode(query, StandardCharsets.UTF_8);
-            String json = new String(get(url), StandardCharsets.UTF_8);
-            Matcher m = RESULT.matcher(json);
-            while (m.find()) {
-                String title = m.group(2).replace("\\\"", "\"");
-                seen.add("#" + m.group(1) + " " + title);
-                if (titleMatches(book.title(), title)) {
-                    System.out.println("  lookup '" + query + "' (" + book.lang() + "): #" + m.group(1) + " " + title);
-                    return m.group(1);
+            String feed = new String(get(url), StandardCharsets.UTF_8);
+            for (Map.Entry<String, String> entry : entries(feed).entrySet()) {
+                String id = entry.getKey();
+                String title = entry.getValue();
+                if (!titleMatches(book.title(), title) || !tried.add(id)) continue;
+                if (tried.size() > 8) break;
+                Candidate c = candidate(book, id, title);
+                seen.add("#" + id + " " + title + (c == null ? " (rejected)" : ""));
+                if (c != null) {
+                    System.out.println("  " + book.lang() + "  " + book.name() + "  found '" + query + "': #" + id + " "
+                            + title);
+                    return c;
                 }
             }
+            Thread.sleep(1000);
         }
         throw new IOException("No Gutenberg book found for " + book.author() + ", " + book.title() + " (" + book.lang()
-                + "); seen: " + String.join("; ", seen.subList(0, Math.min(10, seen.size()))));
+                + "); tried: " + (seen.isEmpty() ? "nothing matching" : String.join("; ", seen)));
+    }
+
+    /** The ebook numbers and titles of an OPDS search result, in its order. */
+    static Map<String, String> entries(String feed) {
+        Map<String, String> entries = new LinkedHashMap<>();
+        Matcher m = ENTRY.matcher(feed);
+        while (m.find()) {
+            Matcher t = ENTRY_TITLE.matcher(m.group(1));
+            Matcher i = ENTRY_ID.matcher(m.group(1));
+            if (t.find() && i.find()) entries.putIfAbsent(i.group(1), unescape(t.group(1)));
+        }
+        return entries;
+    }
+
+    /** The downloaded book if its EPUB is in the expected language and has a matching title, else null. */
+    private Candidate candidate(Book book, String id, String title) throws IOException, InterruptedException {
+        String url = url(book.withRef(id));
+        System.out.println("  " + book.lang() + "  " + book.name() + "  trying #" + id + " " + title + "  <- " + url);
+        byte[] data;
+        try {
+            data = get(url);
+        } catch (IOException e) {
+            System.err.println("    " + e.getMessage());
+            return null;
+        }
+        Path temp = Files.createTempFile("book", ".epub");
+        try {
+            Files.write(temp, data);
+            Metadata meta = metadata(temp);
+            boolean ok = meta.language().toLowerCase(Locale.ROOT).startsWith(book.lang())
+                    && titleMatches(book.title(), meta.title());
+            System.out.println("    " + meta.title() + " [" + meta.language() + "]" + (ok ? "" : " rejected"));
+            return ok ? new Candidate(id, meta.title(), data) : null;
+        } catch (Exception e) {
+            System.err.println("    no EPUB: " + e.getMessage());
+            return null;
+        } finally {
+            Files.deleteIfExists(temp);
+        }
+    }
+
+    private static String unescape(String xml) {
+        Matcher m = Pattern.compile("&#(x?)([0-9a-fA-F]+);").matcher(xml);
+        xml = m.replaceAll(r -> Matcher.quoteReplacement(Character.toString(
+                Integer.parseInt(r.group(2), r.group(1).isEmpty() ? 10 : 16))));
+        return xml.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'")
+                .replace("&amp;", "&");
     }
 
     // ------------------------------------------------------------------ checking

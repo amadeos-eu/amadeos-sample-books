@@ -26,7 +26,9 @@ commit you can review.
   Standard Ebooks URL.
 - `./gradlew fetchBooks` downloads the missing books into `books/<language>/`, checks that each one is an EPUB
   in the listed language with the listed title, and writes `books.sha256`. A Gutenberg number given as `auto` is
-  looked up by author, title and language and written back into `books.tsv`. `-Prefresh` downloads all books
+  looked up in Gutenberg's own search by author and title, checked for its language and written back into
+  `books.tsv`. Busy servers are tried again, and a book that still fails is reported at the end while the
+  others are kept, so the next run only fetches what is missing. `-Prefresh` downloads all books
   again; `./gradlew checkBooks` only checks the files, without a network. The program is
   `src/main/java/eu/amadeos/samplebooks/FetchBooks.java`, plain Java without libraries.
 - `./gradlew deb` checks the books against `books.tsv` and `books.sha256` and builds
@@ -36,9 +38,11 @@ commit you can review.
 ## Adding or changing a book
 
 1. Add a line to `books.tsv` (a Gutenberg book can start as `auto`).
-2. Run `./gradlew fetchBooks`, or push the change: the workflow *Fetch books* runs it on GitHub and
-   commits the downloaded books and the checksums to the same branch.
-3. Look at the titles it printed, then open a pull request.
+2. Run `./gradlew fetchBooks` and look at the titles it prints.
+3. Commit `books/`, `books.sha256` and `books.tsv`, then open a pull request.
+
+Where the book sites cannot be reached, the workflow *Fetch books* can be started by hand on a branch; it
+runs the same program on GitHub and commits the result to that branch.
 
 ## Licence
 

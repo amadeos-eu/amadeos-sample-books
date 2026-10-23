@@ -1,12 +1,9 @@
 name: Fetch books
 
-# Downloads the books of books.tsv on GitHub and commits them with their checksums to the same branch,
-# for when the books cannot be fetched where the change is made. Runs when books.tsv or the program
-# changes on a branch other than main, or by hand.
+# Downloads the books of books.tsv on GitHub and commits them with their checksums to the chosen branch,
+# for when they cannot be fetched where the change is made. The usual way is to run ./gradlew fetchBooks
+# locally and commit the result; this workflow only runs by hand.
 on:
-  push:
-    branches-ignore: [main]
-    paths: [books.tsv, 'src/main/**']
   workflow_dispatch:
     inputs:
       refresh:
@@ -32,16 +29,26 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           cache-provider: basic
+      # A book that cannot be fetched fails this step, but the books fetched so far are still committed,
+      # so the next run only has to fetch the rest.
       - name: Download and check the books
+        id: fetch
+        continue-on-error: true
         run: ./gradlew fetchBooks --no-daemon ${{ inputs.refresh && '-Prefresh' || '' }}
       - name: Commit the books
         run: |
-          git add books books.sha256 books.tsv
+          [ -d books ] && git add books
+          git add books.sha256 books.tsv
           if git diff --cached --quiet; then
-            echo "The books are up to date."
+            echo "Nothing new to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Fetch the books of books.tsv"
           git push
+      - name: Fail when books are missing
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "Some books could not be fetched, see the step 'Download and check the books'."
+          exit 1
