@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+      - name: Check the books and build the package
+        run: ./gradlew check deb --no-daemon
+      - name: Check the package
+        run: |
+          deb=$(ls build/distributions/amadeos-sample-books_*_all.deb)
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb" | tee contents.txt
+          count=$(grep -c '\.epub$' contents.txt)
+          listed=$(grep -cv '^#' books.tsv)
+          echo "Books in the package: $count of $listed"
+          test "$count" -eq "$listed"
+          grep -q 'usr/share/doc/amadeos-sample-books/copyright' contents.txt
+      - name: Upload the Debian package
+        uses: actions/upload-artifact@v7
+        with:
+          name: amadeos-sample-books-deb
+          path: build/distributions/*.deb

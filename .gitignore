@@ -1,0 +1,23 @@
+# Build output
+build/
+bin/
+*.deb
+
+# Java & Gradle
+.gradle/
+**/.gradle/
+**/build/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs & Editor scratch/lock files
+*.log
+*.tmp
+*~
+.*~
+.LCK*
+

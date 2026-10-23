@@ -1,0 +1,126 @@
+plugins {
+    id 'java'
+}
+
+group = 'eu.amadeos'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// The books are in the repository (books/, fetched once with fetchBooks); the package build only checks them
+// against books.tsv and books.sha256 and packs them, so it needs no network.
+tasks.register('fetchBooks', JavaExec) {
+    description = 'Downloads the missing books of books.tsv (-Prefresh: all) and writes books.sha256'
+    group = 'books'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'eu.amadeos.samplebooks.FetchBooks'
+    systemProperty 'books.root', projectDir.absolutePath
+    args project.hasProperty('refresh') ? ['--refresh'] : []
+}
+
+tasks.register('checkBooks', JavaExec) {
+    description = 'Checks books/ against books.tsv and books.sha256'
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'eu.amadeos.samplebooks.FetchBooks'
+    systemProperty 'books.root', projectDir.absolutePath
+    args '--check'
+}
+
+check.dependsOn 'checkBooks'
+
+tasks.register('deb') {
+    dependsOn 'checkBooks'
+    description = 'Builds the Debian (.deb) package amadeos-sample-books'
+    group = 'distribution'
+
+    doLast {
+        def buildDirFile = layout.buildDirectory.get().asFile
+        def stagingDir = new File(buildDirFile, 'deb-staging')
+        delete(stagingDir)
+
+        def booksDir = new File(stagingDir, 'usr/share/amadeos/books')
+        def docDir = new File(stagingDir, 'usr/share/doc/amadeos-sample-books')
+        def debianDir = new File(stagingDir, 'DEBIAN')
+        def distDir = new File(buildDirFile, 'distributions')
+        [booksDir, docDir, debianDir, distDir]*.mkdirs()
+
+        copy {
+            from 'books'
+            into booksDir
+            include '**/*.epub'
+        }
+        copy {
+            from 'packaging/copyright'
+            into docDir
+        }
+        copy {
+            from 'books.tsv'
+            into docDir
+        }
+
+        def size = fileTree(booksDir).files.sum { it.length() } ?: 0
+        new File(debianDir, 'control').text = """Package: amadeos-sample-books
+Version: ${project.version}
+Section: doc
+Priority: optional
+Architecture: all
+Installed-Size: ${(long) Math.ceil(size / 1024.0)}
+Recommends: amade-books
+Maintainer: amadeOS Project <developers@datazuul.com>
+Description: Public-domain classics for the amadeOS e-book reader
+ Fifteen books in English, German, French, Italian and Spanish, three per
+ language, from Standard Ebooks and Project Gutenberg: Alice's Adventures in
+ Wonderland, Pride and Prejudice, Die Verwandlung, Faust, Le tour du monde en
+ quatre-vingts jours, Pinocchio, Don Quijote and more. They are installed to
+ /usr/share/amadeos/books, where Books shows them on the shelf "Included
+ with amadeOS". Part of the amadeOS desktop.
+"""
+
+        def debFile = new File(distDir, "amadeos-sample-books_${project.version}_all.deb")
+        def process = new ProcessBuilder('dpkg-deb', '--root-owner-group', '--build',
+                stagingDir.absolutePath, debFile.absolutePath)
+                .redirectErrorStream(true)
+                .start()
+        process.inputStream.eachLine { println it }
+        if (process.waitFor() != 0) {
+            throw new GradleException('dpkg-deb failed')
+        }
+        println "[deb] Created ${debFile.absolutePath}"
+    }
+}
+
+tasks.register('installToAmadeOs') {
+    dependsOn 'deb'
+    description = 'Builds and drops the .deb package into ../amadeos/config/packages.chroot/'
+    group = 'distribution'
+
+    doLast {
+        def targetDir = file('../amadeos/config/packages.chroot')
+        targetDir.mkdirs()
+        def debFile = new File(layout.buildDirectory.get().asFile, "distributions/amadeos-sample-books_${project.version}_all.deb")
+        copy {
+            from debFile
+            into targetDir
+        }
+        println "[installToAmadeOs] Copied ${debFile.name} to ${targetDir.absolutePath}"
+    }
+}

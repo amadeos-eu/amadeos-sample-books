@@ -1,0 +1,21 @@
+# The books of amadeos-sample-books: public-domain classics, three per desktop language.
+# Columns (tab-separated): language, file name, author, title, source, id or URL.
+#   source "standardebooks": a Standard Ebooks URL (their editions are CC0)
+#   source "gutenberg": a Project Gutenberg ebook number; "auto" makes ./gradlew fetchBooks look it up by
+#   author, title and language and write the number it found back into this file
+# Every author died before 1955, so the texts are in the public domain in the EU and the USA.
+en	alice-in-wonderland	Lewis Carroll	Alice’s Adventures in Wonderland	standardebooks	https://standardebooks.org/ebooks/lewis-carroll/alices-adventures-in-wonderland/john-tenniel/downloads/lewis-carroll_alices-adventures-in-wonderland_john-tenniel.epub
+en	pride-and-prejudice	Jane Austen	Pride and Prejudice	standardebooks	https://standardebooks.org/ebooks/jane-austen/pride-and-prejudice/downloads/jane-austen_pride-and-prejudice.epub
+en	the-time-machine	H. G. Wells	The Time Machine	standardebooks	https://standardebooks.org/ebooks/h-g-wells/the-time-machine/downloads/h-g-wells_the-time-machine.epub
+de	die-verwandlung	Franz Kafka	Die Verwandlung	gutenberg	22367
+de	faust-1	Johann Wolfgang von Goethe	Faust	gutenberg	2229
+de	kinder-und-hausmaerchen	Jacob Grimm	Kinder- und Hausmärchen	gutenberg	auto
+fr	le-tour-du-monde-en-80-jours	Jules Verne	Le tour du monde en quatre-vingts jours	gutenberg	800
+fr	candide	Voltaire	Candide	gutenberg	4650
+fr	les-miserables-1	Victor Hugo	Les misérables Tome I	gutenberg	17489
+it	pinocchio	Carlo Collodi	Le avventure di Pinocchio	gutenberg	auto
+it	novelle-rusticane	Giovanni Verga	Novelle rusticane	gutenberg	auto
+it	inferno	Dante Alighieri	Inferno	gutenberg	auto
+es	don-quijote	Miguel de Cervantes Saavedra	Don Quijote	gutenberg	2000
+es	rimas	Gustavo Adolfo Bécquer	Rimas	gutenberg	auto
+es	lazarillo-de-tormes	Anónimo	Lazarillo de Tormes	gutenberg	320
