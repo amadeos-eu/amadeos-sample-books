@@ -195,13 +195,17 @@ public final class FetchBooks {
         String lastName = book.author().toLowerCase(Locale.ROOT).startsWith("an") && names.length == 1 ? ""
                 : names[names.length - 1];
         Set<String> queries = new LinkedHashSet<>();
-        queries.add((lastName + " " + book.title()).strip());
-        for (String word : book.title().split("[^\\p{L}]+")) {
-            if (word.length() >= 5) queries.add((lastName + " " + word).strip());
+        for (String title : titles(book.title())) {
+            queries.add((lastName + " " + title).strip());
+            for (String word : title.split("[^\\p{L}]+")) {
+                if (word.length() >= 5) queries.add((lastName + " " + word).strip());
+            }
+            queries.add(title);
         }
-        queries.add(book.title());
+        if (!lastName.isEmpty()) queries.add(lastName); // all books of the author, when no title query finds one
         Set<String> tried = new LinkedHashSet<>();
         List<String> seen = new ArrayList<>();
+        Set<String> others = new LinkedHashSet<>();
         for (String query : queries) {
             String url = "https://www.gutenberg.org/ebooks/search.opds/?query="
                     + URLEncoder.encode(query, StandardCharsets.UTF_8);
@@ -209,7 +213,11 @@ public final class FetchBooks {
             for (Map.Entry<String, String> entry : entries(feed).entrySet()) {
                 String id = entry.getKey();
                 String title = entry.getValue();
-                if (!titleMatches(book.title(), title) || !tried.add(id)) continue;
+                if (!titleMatches(book.title(), title)) {
+                    others.add("#" + id + " " + title);
+                    continue;
+                }
+                if (!tried.add(id)) continue;
                 if (tried.size() > 8) break;
                 Candidate c = candidate(book, id, title);
                 seen.add("#" + id + " " + title + (c == null ? " (rejected)" : ""));
@@ -222,7 +230,8 @@ public final class FetchBooks {
             Thread.sleep(1000);
         }
         throw new IOException("No Gutenberg book found for " + book.author() + ", " + book.title() + " (" + book.lang()
-                + "); tried: " + (seen.isEmpty() ? "nothing matching" : String.join("; ", seen)));
+                + "); tried: " + (seen.isEmpty() ? "nothing matching" : String.join("; ", seen))
+                + "; other results: " + (others.isEmpty() ? "none" : String.join("; ", others.stream().limit(25).toList())));
     }
 
     /** The ebook numbers and titles of an OPDS search result, in its order. */
@@ -349,11 +358,22 @@ public final class FetchBooks {
         return nodes.getLength() == 0 ? "" : nodes.item(0).getTextContent().strip();
     }
 
-    /** Whether a title shares a word of five or more letters with the expected one (accents and case ignored). */
+    /** The titles of a books.tsv title column: one title or several alternatives separated by " | ". */
+    static List<String> titles(String column) {
+        return Arrays.stream(column.split("\\|")).map(String::strip).filter(t -> !t.isEmpty()).toList();
+    }
+
+    /**
+     * Whether a title shares a word of four or more letters with the expected one, or with one of its alternatives
+     * (accents and case ignored).
+     */
     static boolean titleMatches(String expected, String title) {
         Set<String> words = new HashSet<>(Arrays.asList(fold(title).split(" ")));
-        List<String> wanted = Arrays.stream(fold(expected).split(" ")).filter(w -> w.length() >= 4).toList();
-        return wanted.isEmpty() || wanted.stream().anyMatch(words::contains);
+        for (String alternative : titles(expected)) {
+            List<String> wanted = Arrays.stream(fold(alternative).split(" ")).filter(w -> w.length() >= 4).toList();
+            if (wanted.isEmpty() || wanted.stream().anyMatch(words::contains)) return true;
+        }
+        return false;
     }
 
     /** Lower case without accents and punctuation. */
