@@ -10,7 +10,7 @@ in `~/Books`.
 | English | Alice’s Adventures in Wonderland, Pride and Prejudice, The Time Machine | Standard Ebooks (CC0) |
 | German | Die Verwandlung, Faust I, Kinder- und Hausmärchen | Project Gutenberg |
 | French | Le tour du monde en quatre-vingts jours, Candide, Les misérables (tome I) | Project Gutenberg |
-| Italian | Le avventure di Pinocchio, Novelle rusticane, Inferno | Project Gutenberg |
+| Italian | Le avventure di Pinocchio, I promessi sposi, Inferno | Project Gutenberg |
 | Spanish | Don Quijote, Rimas, Lazarillo de Tormes | Project Gutenberg |
 
 Every author died before 1955, so the texts are in the public domain in the EU and the USA. The Project
