@@ -15,5 +15,5 @@ books.tsv in this folder lists every book with its source.
 
 The packaging
 -------------
-The scripts and build files of the package are licensed under the European Union Public Licence
+The program and build files of the package are licensed under the European Union Public Licence
 v. 1.2 (EUPL-1.2), see https://github.com/datazuul/amadeos-sample-books/blob/main/LICENSE.

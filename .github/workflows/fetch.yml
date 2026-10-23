@@ -1,12 +1,12 @@
 name: Fetch books
 
 # Downloads the books of books.tsv on GitHub and commits them with their checksums to the same branch,
-# for when the books cannot be fetched where the change is made. Runs when books.tsv or the script
+# for when the books cannot be fetched where the change is made. Runs when books.tsv or the program
 # changes on a branch other than main, or by hand.
 on:
   push:
     branches-ignore: [main]
-    paths: [books.tsv, fetch-books.py]
+    paths: [books.tsv, 'src/main/**']
   workflow_dispatch:
     inputs:
       refresh:
@@ -25,8 +25,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
       - name: Download and check the books
-        run: ./fetch-books.py ${{ inputs.refresh && '--refresh' || '' }}
+        run: ./gradlew fetchBooks --no-daemon ${{ inputs.refresh && '-Prefresh' || '' }}
       - name: Commit the books
         run: |
           git add books books.sha256 books.tsv

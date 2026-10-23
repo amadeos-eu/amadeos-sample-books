@@ -1,18 +1,48 @@
 plugins {
-    id 'base'
+    id 'java'
 }
 
 group = 'eu.amadeos'
 version = '1.0.0'
 
-// The books are in the repository (books/, fetched once with ./fetch-books.py); the build only checks
-// them against books.tsv and books.sha256 and packs them, so it needs no network.
-tasks.register('checkBooks', Exec) {
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// The books are in the repository (books/, fetched once with fetchBooks); the package build only checks them
+// against books.tsv and books.sha256 and packs them, so it needs no network.
+tasks.register('fetchBooks', JavaExec) {
+    description = 'Downloads the missing books of books.tsv (-Prefresh: all) and writes books.sha256'
+    group = 'books'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'eu.amadeos.samplebooks.FetchBooks'
+    systemProperty 'books.root', projectDir.absolutePath
+    args project.hasProperty('refresh') ? ['--refresh'] : []
+}
+
+tasks.register('checkBooks', JavaExec) {
     description = 'Checks books/ against books.tsv and books.sha256'
     group = 'verification'
-    commandLine 'python3', 'fetch-books.py', '--check'
-    inputs.files('books.tsv', 'books.sha256', fileTree('books'))
-    outputs.upToDateWhen { true }
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'eu.amadeos.samplebooks.FetchBooks'
+    systemProperty 'books.root', projectDir.absolutePath
+    args '--check'
 }
 
 check.dependsOn 'checkBooks'
@@ -61,8 +91,8 @@ Description: Public-domain classics for the amadeOS e-book reader
  language, from Standard Ebooks and Project Gutenberg: Alice's Adventures in
  Wonderland, Pride and Prejudice, Die Verwandlung, Faust, Le tour du monde en
  quatre-vingts jours, Pinocchio, Don Quijote and more. They are installed to
- /usr/share/amadeos/books, where Books shows them on the shelf "Included".
- Part of the amadeOS desktop.
+ /usr/share/amadeos/books, where Books shows them on the shelf "Included
+ with amadeOS". Part of the amadeOS desktop.
 """
 
         def debFile = new File(distDir, "amadeos-sample-books_${project.version}_all.deb")

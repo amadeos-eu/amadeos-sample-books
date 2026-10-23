@@ -1,7 +1,7 @@
 # The books of amadeos-sample-books: public-domain classics, three per desktop language.
 # Columns (tab-separated): language, file name, author, title, source, id or URL.
 #   source "standardebooks": a Standard Ebooks URL (their editions are CC0)
-#   source "gutenberg": a Project Gutenberg ebook number; "auto" makes fetch-books.py look it up by
+#   source "gutenberg": a Project Gutenberg ebook number; "auto" makes ./gradlew fetchBooks look it up by
 #   author, title and language and write the number it found back into this file
 # Every author died before 1955, so the texts are in the public domain in the EU and the USA.
 en	alice-in-wonderland	Lewis Carroll	Alice’s Adventures in Wonderland	standardebooks	https://standardebooks.org/ebooks/lewis-carroll/alices-adventures-in-wonderland/john-tenniel/downloads/lewis-carroll_alices-adventures-in-wonderland_john-tenniel.epub
