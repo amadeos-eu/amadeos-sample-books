@@ -1,0 +1,19 @@
+amadeos-sample-books: public-domain classics for amadeOS
+Source: https://github.com/datazuul/amadeos-sample-books
+
+The books (/usr/share/amadeos/books)
+------------------------------------
+The texts are in the public domain: every author died before 1955, so they are free in the
+European Union (70 years after the author's death) and in the United States (published before 1930).
+books.tsv in this folder lists every book with its source.
+
+- Books from Standard Ebooks (https://standardebooks.org): the editions, including their markup,
+  covers and notes, are dedicated to the public domain under CC0 1.0 Universal by Standard Ebooks.
+- Books from Project Gutenberg (https://www.gutenberg.org): each book carries the Project Gutenberg
+  License in its text. The books are given away free of charge, as that licence allows; the name
+  "Project Gutenberg" is a trademark of the Project Gutenberg Literary Archive Foundation.
+
+The packaging
+-------------
+The scripts and build files of the package are licensed under the European Union Public Licence
+v. 1.2 (EUPL-1.2), see https://github.com/datazuul/amadeos-sample-books/blob/main/LICENSE.

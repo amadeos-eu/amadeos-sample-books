@@ -1,0 +1,40 @@
+name: Fetch books
+
+# Downloads the books of books.tsv on GitHub and commits them with their checksums to the same branch,
+# for when the books cannot be fetched where the change is made. Runs when books.tsv or the script
+# changes on a branch other than main, or by hand.
+on:
+  push:
+    branches-ignore: [main]
+    paths: [books.tsv, fetch-books.py]
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: Download all books again
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-${{ github.ref }}
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download and check the books
+        run: ./fetch-books.py ${{ inputs.refresh && '--refresh' || '' }}
+      - name: Commit the books
+        run: |
+          git add books books.sha256 books.tsv
+          if git diff --cached --quiet; then
+            echo "The books are up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Fetch the books of books.tsv"
+          git push
