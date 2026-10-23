@@ -49,6 +49,9 @@ class FetchBooksTest {
         assertTrue(FetchBooks.titleMatches("Kinder- und Hausmärchen", "Kinder- und Hausmaerchen Band 1".replace("ae", "ä")));
         assertTrue(FetchBooks.titleMatches("Faust", "Faust: Der Tragödie erster Teil"));
         assertFalse(FetchBooks.titleMatches("Inferno", "Il Purgatorio"));
+        assertTrue(FetchBooks.titleMatches("Kinder- und Hausmärchen | Grimms Märchen", "Grimms Märchen"));
+        assertFalse(FetchBooks.titleMatches("Kinder- und Hausmärchen | Grimms Märchen", "Deutsche Sagen"));
+        assertEquals(List.of("Kinder- und Hausmärchen", "Märchen"), FetchBooks.titles(" Kinder- und Hausmärchen | Märchen "));
         assertEquals("alice s adventures in wonderland", FetchBooks.fold("Alice’s Adventures in Wonderland"));
     }
 
