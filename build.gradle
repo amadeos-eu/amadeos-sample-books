@@ -3,7 +3,11 @@ plugins {
 }
 
 group = 'eu.amadeos'
-version = '1.0.0'
+// CI computes the version from the Conventional Commits since the last release tag and passes it as
+// -PappVersion (datazuul/amadeos-ci scripts/next-version.sh); a build without it is a local development build.
+version = findProperty('appVersion') ?: '0.0.0-dev.0'
+// Debian sorts 1.1.0~dev.57 before 1.1.0 (with - it would sort after it).
+def debVersion = version.toString().replace('-', '~')
 
 java {
     toolchain {
@@ -79,7 +83,7 @@ tasks.register('deb') {
 
         def size = fileTree(booksDir).files.sum { it.length() } ?: 0
         new File(debianDir, 'control').text = """Package: amadeos-sample-books
-Version: ${project.version}
+Version: ${debVersion}
 Section: doc
 Priority: optional
 Architecture: all
@@ -95,7 +99,7 @@ Description: Public-domain classics for the amadeOS e-book reader
  with amadeOS". Part of the amadeOS desktop.
 """
 
-        def debFile = new File(distDir, "amadeos-sample-books_${project.version}_all.deb")
+        def debFile = new File(distDir, "amadeos-sample-books_${debVersion}_all.deb")
         def process = new ProcessBuilder('dpkg-deb', '--root-owner-group', '--build',
                 stagingDir.absolutePath, debFile.absolutePath)
                 .redirectErrorStream(true)
@@ -116,7 +120,7 @@ tasks.register('installToAmadeOs') {
     doLast {
         def targetDir = file('../amadeos/config/packages.chroot')
         targetDir.mkdirs()
-        def debFile = new File(layout.buildDirectory.get().asFile, "distributions/amadeos-sample-books_${project.version}_all.deb")
+        def debFile = new File(layout.buildDirectory.get().asFile, "distributions/amadeos-sample-books_${debVersion}_all.deb")
         copy {
             from debFile
             into targetDir
