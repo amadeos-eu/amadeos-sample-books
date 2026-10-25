@@ -1,8 +1,10 @@
 name: Build
 
+# develop builds X.Y.Z-dev.N, release X.Y.Z-pre.N and main the release X.Y.Z, which the release job
+# tags and publishes with the package (see CONTRIBUTING.md of datazuul/amadeos, "Commits and versions").
 on:
   push:
-    branches: [main]
+    branches: [develop, release, main]
   pull_request:
 
 permissions:
@@ -11,8 +13,16 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The version is computed from the history since the last release tag.
+          fetch-depth: 0
+      - id: version
+        uses: datazuul/amadeos-ci/version@main
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -21,7 +31,7 @@ jobs:
         with:
           cache-provider: basic
       - name: Check the books and build the package
-        run: ./gradlew check deb --no-daemon
+        run: ./gradlew check deb --no-daemon -PappVersion=${{ steps.version.outputs.version }}
       - name: Check the package
         run: |
           deb=$(ls build/distributions/amadeos-sample-books_*_all.deb)
@@ -32,8 +42,38 @@ jobs:
           echo "Books in the package: $count of $listed"
           test "$count" -eq "$listed"
           grep -q 'usr/share/doc/amadeos-sample-books/copyright' contents.txt
+          test "$(dpkg-deb --field "$deb" Version)" = "${{ steps.version.outputs.deb-version }}"
       - name: Upload the Debian package
         uses: actions/upload-artifact@v7
         with:
           name: amadeos-sample-books-deb
           path: build/distributions/*.deb
+
+  # Only on main, after the release branch was promoted: tag vX.Y.Z and publish the GitHub Release.
+  release:
+    needs: build
+    if: needs.build.outputs.channel == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: amadeos-sample-books-deb
+          path: dist
+      - uses: datazuul/amadeos-ci/release@main
+        with:
+          version: ${{ needs.build.outputs.version }}
+          files: dist/*.deb
+
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: datazuul/amadeos-ci/check-commits@main
