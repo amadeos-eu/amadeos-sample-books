@@ -1,7 +1,7 @@
 name: Build
 
 # develop builds X.Y.Z-dev.N, release X.Y.Z-pre.N and main the release X.Y.Z, which the release job
-# tags and publishes with the package (see CONTRIBUTING.md of datazuul/amadeos, "Commits and versions").
+# tags and publishes with the package (see CONTRIBUTING.md of amadeos-eu/amadeos, "Commits and versions").
 on:
   push:
     branches: [develop, release, main]

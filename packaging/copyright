@@ -1,5 +1,5 @@
 amadeos-sample-books: public-domain classics for amadeOS
-Source: https://github.com/datazuul/amadeos-sample-books
+Source: https://github.com/amadeos-eu/amadeos-sample-books
 
 The books (/usr/share/amadeos/books)
 ------------------------------------
@@ -16,4 +16,4 @@ books.tsv in this folder lists every book with its source.
 The packaging
 -------------
 The program and build files of the package are licensed under the European Union Public Licence
-v. 1.2 (EUPL-1.2), see https://github.com/datazuul/amadeos-sample-books/blob/main/LICENSE.
+v. 1.2 (EUPL-1.2), see https://github.com/amadeos-eu/amadeos-sample-books/blob/main/LICENSE.

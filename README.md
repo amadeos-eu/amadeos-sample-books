@@ -1,6 +1,6 @@
 # amadeos-sample-books
 
-Public-domain classics for [Books](https://github.com/datazuul/amade-books), the e-book reader of amadeOS:
+Public-domain classics for [Books](https://github.com/amadeos-eu/amade-books), the e-book reader of amadeOS:
 fifteen books, three in each language of the desktop. The Debian package `amadeos-sample-books` installs them
 to `/usr/share/amadeos/books`, where Books shows them on the shelf *Included with amadeOS*, next to the reader's own books
 in `~/Books`.
