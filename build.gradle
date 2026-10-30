@@ -4,7 +4,7 @@ plugins {
 
 group = 'eu.amadeos'
 // CI computes the version from the Conventional Commits since the last release tag and passes it as
-// -PappVersion (datazuul/amadeos-ci scripts/next-version.sh); a build without it is a local development build.
+// -PappVersion (amadeos-eu/amadeos-ci scripts/next-version.sh); a build without it is a local development build.
 version = findProperty('appVersion') ?: '0.0.0-dev.0'
 // Debian sorts 1.1.0~dev.57 before 1.1.0 (with - it would sort after it).
 def debVersion = version.toString().replace('-', '~')

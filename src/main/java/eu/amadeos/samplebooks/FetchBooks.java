@@ -49,7 +49,7 @@ import java.util.zip.ZipFile;
  * fails is reported at the end, and the books fetched so far are kept.
  */
 public final class FetchBooks {
-    static final String AGENT = "amadeos-sample-books/1.0 (+https://github.com/datazuul/amadeos-sample-books)";
+    static final String AGENT = "amadeos-sample-books/1.0 (+https://github.com/amadeos-eu/amadeos-sample-books)";
 
     /** One line of books.tsv. */
     record Book(int line, String lang, String name, String author, String title, String source, String ref) {
